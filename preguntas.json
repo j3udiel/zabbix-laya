@@ -1,0 +1,22 @@
+{
+  "categoria": {
+    "type": "choice",
+    "instructions": "Clasifica el problema descrito en la alerta de Zabbix según el recurso o comprobación que falla.",
+    "criteria": {
+      "disponibilidad": "El host completo no responde o está apagado.",
+      "almacenamiento": "Problemas de espacio en disco o escritura en el almacenamiento.",
+      "recursos": "Uso excesivo de CPU o memoria RAM.",
+      "red": "Pérdida de paquetes, latencia o conectividad intermitente de red.",
+      "monitorizacion": "Falla el agente de Zabbix o la recogida de métricas; no se confirma caída del host."
+    }
+  },
+  "gravedad": {
+    "type": "score",
+    "instructions": "Valora el impacto operativo actual según el contexto, no solo el título de la alerta.",
+    "criteria": ["Sin impacto actual: mantenimiento previsto o servicio normal.", "Advertencia preventiva: riesgo de degradación sin afectación confirmada.", "Degradación confirmada: usuarios afectados parcialmente.", "Interrupción crítica: servicio de producción caído o no permite operar."]
+  },
+  "impacto_confirmado": {
+    "type": "noul",
+    "instructions": "¿El contexto confirma explícitamente que los usuarios o un servicio de producción están afectados actualmente? Una alerta técnica por sí sola no confirma ese impacto."
+  }
+}
