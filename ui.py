@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import threading
 import time
+from importlib.metadata import version
 
 BASE = Path(__file__).resolve().parent
 os.environ["HF_HOME"] = str(BASE / ".cache" / "huggingface")
@@ -13,6 +14,29 @@ os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 LOCK = threading.Lock()
 router = None
+
+
+def model_metadata():
+    ref = BASE / '.cache/huggingface/hub/models--convaiinnovations--laya/refs/main'
+    return {'laya_version': version('laya'), 'model_revision': ref.read_text().strip() if ref.exists() else None}
+
+
+def check_context(agent, state, questions):
+    """Reject truncation for machine callers; tied to the pinned Laya 0.3.20 formatter."""
+    from laya.common import serialize_state, render_options
+    tok = agent.tok
+    encode = lambda text: tok(text.replace(tok.mask_token, ' '), add_special_tokens=False)['input_ids']
+    state_length = len(encode(serialize_state(state)))
+    max_length = agent.cfg.get('max_len', 512)
+    head_limit = agent.cfg.get('head_max_len', 192)
+    for qdef in questions.values():
+        q = agent._to_internal(qdef)
+        options = [len(encode(' ' + option)) for option in render_options(q)]
+        head_length = len(encode('%s question: %s' % (q['t'], q['ins'])))
+        if any(n > 48 for n in options) or head_length + sum(n+1 for n in options) > head_limit:
+            raise ValueError('Las instrucciones u opciones exceden el contexto de la pregunta.')
+        if state_length + head_length + sum(n+1 for n in options) + 4 > max_length:
+            raise ValueError('La alerta excede el contexto del modelo. Reduce las features; no se ha truncado.')
 
 
 def validate(payload):
@@ -58,7 +82,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, {"cases": json.loads((BASE / "alertas.json").read_text()),
                              "questions": json.loads((BASE / "preguntas.json").read_text())})
         elif self.path == "/api/health":
-            self.reply(200, {"ready": router is not None, "model": "multilingual", "offline": True})
+            self.reply(200, {"ready": router is not None, "model": "multilingual", "offline": True, **model_metadata()})
         else:
             self.reply(404, {"error": "Ruta no encontrada"})
 
@@ -79,7 +103,11 @@ class Handler(BaseHTTPRequestHandler):
             if not 0 < length <= 16000:
                 raise ValueError("La solicitud debe ocupar entre 1 y 16000 bytes.")
             self.connection.settimeout(15)
-            state, questions = validate(json.loads(self.rfile.read(length)))
+            payload = json.loads(self.rfile.read(length))
+            state, questions = validate(payload)
+            strict_context = payload.get('strict_context', False)
+            if not isinstance(strict_context, bool):
+                raise ValueError('strict_context debe ser booleano.')
         except (ValueError, OSError) as exc:
             self.reply(400, {"error": str(exc)})
             return
@@ -87,12 +115,16 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(429, {"error": "Laya está evaluando otra alerta. Vuelve a intentarlo en unos segundos."})
             return
         try:
+            if strict_context:
+                check_context(router.load('multilingual'), state, questions)
             started = time.perf_counter()
             result = router.predict(state, questions, model="multilingual")
             self.reply(200, {"result": result, "seconds": time.perf_counter() - started,
-                             "state": state, "questions": questions})
+                             "state": state, "questions": questions, **model_metadata()})
+        except ValueError as exc:
+            self.reply(422, {"error": str(exc) if strict_context else 'Pregunta no válida.'})
         except Exception as exc:
-            print(f"Error de inferencia: {exc}", flush=True)
+            print(f"Error de inferencia: {type(exc).__name__}", flush=True)
             self.reply(500, {"error": "No se pudo evaluar la alerta. Revisa el contenido y el registro del servidor."})
         finally:
             LOCK.release()

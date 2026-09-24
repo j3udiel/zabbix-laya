@@ -45,6 +45,12 @@ Selecciona un ejemplo, cambia el título, métricas o contexto y pulsa **Evaluar
 
 Una comparación útil: prueba una caída de host de producción y luego cambia el contexto a mantenimiento de un servidor de pruebas. Observa si cambia la estimación de impacto.
 
+## API para integraciones locales
+
+La UI conserva el mismo contrato. Otro proceso local puede consultar `GET /api/health` (estado, versión de Laya y revisión del modelo) y enviar `POST /api/predict` con `state`, `questions` y opcionalmente `strict_context: true`. Este modo rechaza con HTTP 422 las entradas o preguntas que el modelo truncaría. La respuesta incluye `result.answers`, `seconds`, `laya_version` y `model_revision`; no genera texto libre.
+
+El orquestador debe calcular y minimizar las features, validar las salidas y conservar su evidencia. Este servicio no recibe tokens ni escribe en Zabbix. La integración predictiva vive separadamente en AI Monitoring; la autorización de escritura corresponde exclusivamente a su fase LAB. Los errores 400/422 indican entradas inválidas y 429 indica otra inferencia en curso. No hay cola persistente ni autenticación para exposición pública.
+
 ## Datos y repositorio
 
 Solo los ejemplos sintéticos de `alertas.json` se publican. Introduce alertas reales en la interfaz, no en ese archivo. Entornos virtuales, caché, resultados, registros y formatos habituales de credenciales están excluidos mediante `.gitignore`. Revisa siempre los archivos preparados antes de hacer un commit: ignorar nombres de archivo no detecta secretos incrustados en código o documentación.
