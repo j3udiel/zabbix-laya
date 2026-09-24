@@ -78,6 +78,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/":
             self.reply(200, (BASE / "ui.html").read_bytes(), "text/html; charset=utf-8")
+        elif self.path in ("/propuesta", "/propuesta.html"):
+            self.reply(200, (BASE / "propuesta.html").read_bytes(), "text/html; charset=utf-8")
         elif self.path == "/api/setup":
             self.reply(200, {"cases": json.loads((BASE / "alertas.json").read_text()),
                              "questions": json.loads((BASE / "preguntas.json").read_text())})

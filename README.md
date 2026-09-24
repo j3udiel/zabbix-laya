@@ -45,6 +45,10 @@ Selecciona un ejemplo, cambia el título, métricas o contexto y pulsa **Evaluar
 
 Una comparación útil: prueba una caída de host de producción y luego cambia el contexto a mantenimiento de un servidor de pruebas. Observa si cambia la estimación de impacto.
 
+## Propuesta de negocio
+
+La página independiente [propuesta.html](propuesta.html), disponible en `/propuesta` al iniciar la UI, recoge la propuesta de monitorización proactiva: casos de uso, arquitectura, automatización, métricas y hoja de ruta. Se puede abrir directamente como archivo, imprimir a PDF y anotar ideas. Las notas se conservan únicamente en el navegador; la página no consulta Zabbix ni Laya. Es una propuesta para evaluar, no una promesa comercial ni un panel operativo.
+
 ## API para integraciones locales
 
 La UI conserva el mismo contrato. Otro proceso local puede consultar `GET /api/health` (estado, versión de Laya y revisión del modelo) y enviar `POST /api/predict` con `state`, `questions` y opcionalmente `strict_context: true`. Este modo rechaza con HTTP 422 las entradas o preguntas que el modelo truncaría. La respuesta incluye `result.answers`, `seconds`, `laya_version` y `model_revision`; no genera texto libre.
